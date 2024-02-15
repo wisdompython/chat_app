@@ -18,7 +18,7 @@ from llama_index.prompts import PromptTemplate
 # query_wrapper_prompt = PromptTemplate(
 #     "[INST]<<SYS>>\n" + SYSTEM_PROMPT + "<</SYS>>\n\n{query_str}[/INST] "
 
-os.environ["OPENAI_API_KEY"] = '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'
+
 
 def load_collection(collection_id):
     num_outputs = 512
