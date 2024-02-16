@@ -1,0 +1,6 @@
+<div>
+
+    {% for model in collections %}
+        <a href="{% url 'query' model.id %}">chat with {{model.title}}</a>
+    {%endfor%}
+</div>

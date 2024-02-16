@@ -65,7 +65,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def has_module_perms(self, app_label):
         "Does the user have permissions to view the app `app_label`?"
         # Simplest possible answer: Yes, always
-        return True
+        return True                     
 
     @property
     def is_staff(self):
@@ -78,9 +78,23 @@ class UserProfile(models.Model):
     user = models.OneToOneField("CustomUser", on_delete=models.CASCADE)
     bio = models.TextField(null=True)
     profile_pic = models.ImageField(upload_to=None, height_field=None, width_field=None, max_length=None, null=True)
+
+# i want to search for friend and send a request
+class FriendRequest(models.Model):
+    sender = models.ForeignKey(CustomUser, related_name='friend_request_from', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(CustomUser, related_name="friend_request_to", on_delete=models.CASCADE)
+    pending = models.BooleanField(default=True)
+    accepted = models.BooleanField(default=False)
+    rejected = models.BooleanField(default=False)    
+class UserNotifications(models.Model):
+    notification_name = models.CharField(max_length=500)
+    sender = models.ForeignKey(CustomUser, related_name='sent_by', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(CustomUser, related_name='sent_to', on_delete=models.CASCADE)
+    friend_request = models.BooleanField(default=False)
+    group_invite = models.BooleanField(default=False)
     
-    @property
-    def get_user_posts(self):
-        
-        return UserProfile.objects.get()
-        pass
+class UserFriends(models.Model):
+    user = models.ForeignKey(CustomUser, related_name='friend_from', on_delete=models.CASCADE)
+    friends = models.ForeignKey(CustomUser, related_name='friend_to', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+

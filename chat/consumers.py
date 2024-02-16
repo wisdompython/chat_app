@@ -1,6 +1,7 @@
 import json
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
+from django.shortcuts import get_object_or_404
 from .models import Room, PrivateMessage as PM
 from users.models import *
 
@@ -12,12 +13,17 @@ class ChatConsumer(WebsocketConsumer):
         self.room = None
 
     def connect(self):
+        self.user = self.scope['user']
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'chat_{self.room_name}'
         self.room = Room.objects.get(room_name=self.room_name)
 
+        # connection has to be accepted if user is authenticated and room with user in it exists
+        if self.user.is_authenticated:
+            room = get_object_or_404(Room, room_name=self.room_name, online__id=self.user.id)
         # connection has to be accepted
-        self.accept()
+            if room:
+                self.accept()
 
 
         # join the room group
@@ -59,11 +65,14 @@ class PrivateMessage(WebsocketConsumer):
         self.room = None
 
     def connect(self):
+        self.user = self.scope['user']
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'chat_{self.room_name}'
+        print(self.channel_name)
 
+        if self.user.is_authenticated and Room.objects.filter(room_name = self.room_name, online__id=self.user.id) is not None:
         # connection has to be accepted
-        self.accept()
+            self.accept()
 
 
         # join the room group

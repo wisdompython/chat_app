@@ -44,6 +44,7 @@
             {{request.user.email|json_script:"LoggedInUser"}}
             {{ other_user.email|json_script:"otherUser" }}
         </div>
-        <script src="{% static 'pm.js' %}"></script>
+        <script type="module" src="{% static 'pm.js' %}"></script>
+        <script type="module" src="{% static 'sortusermsg.js' %}"></script>
     </body>
 </html>

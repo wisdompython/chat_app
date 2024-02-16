@@ -1,5 +1,4 @@
-console.log("Sanity check from room.js.");
-
+import {SortMessagesByUser} from './sortusermsg.js';
 const roomName = JSON.parse(document.getElementById('roomName').textContent);
 const LoggedInUser = JSON.parse(document.getElementById('LoggedInUser').textContent)
 const OtherUser= JSON.parse(document.getElementById('otherUser').textContent)
@@ -72,7 +71,7 @@ function connect() {
                 const newMessage = document.createElement('div')
                 newMessage.setAttribute('class','message-content')
                 newMessage.setAttribute('data-author',data.sent_by)
-                message_body = document.createElement("p")
+                let message_body = document.createElement("p")
                 message_body.textContent = data.message
                 newMessage.appendChild(message_body)
                 chatLog.appendChild(newMessage)
@@ -113,47 +112,6 @@ function connect() {
     };
 }
 console.log(roomName)
-
-
-function SortMessagesByUser(){
-    const messageContainer = document.getElementsByClassName("message-content")
-    console.log(messageContainer)
-
-    for (let i = 0, len = messageContainer.length; i < len; i++){
-        console.log(messageContainer[i].getAttribute('data-author'))
-        if (messageContainer[i].getAttribute('data-author')==LoggedInUser){
-            // style here
-            messageContainer[i].style.marginLeft="70%"
-            // messageContainer[i].style.direction="rtl"
-            messageContainer[i].style.float="right"
-            messageContainer[i].style.display="inline-block"
-            messageContainer[i].style.maxWidth="40%"
-            messageContainer[i].children[0].style.overflowWrap="break-word"
-            messageContainer[i].children[0].style.width="fit-content"
-            messageContainer[i].children[0].style.float="right"
-            messageContainer[i].children[0].style.display="inline-block"
-            messageContainer[i].children[0].style.borderRadius="10px"
-            messageContainer[i].children[0].style.maxWidth="100%"
-            messageContainer[i].children[0].style.padding="5px"
-            messageContainer[i].children[0].style.marginBottom="5px"
-            messageContainer[i].children[0].style.backgroundColor="rgb(137, 100, 100)"
-        }else{
-           
-            messageContainer[i].style.marginRight="60%"
-            messageContainer[i].style.display="inline-block"
-            messageContainer[i].style.maxWidth="40%"
-            messageContainer[i].children[0].style.overflowWrap="break-word"
-            messageContainer[i].children[0].style.overflowWrap="break-word"
-            messageContainer[i].children[0].style.width="fit-content"
-            messageContainer[i].children[0].style.display="inline-block"
-            messageContainer[i].children[0].style.maxWidth="100%"
-            messageContainer[i].children[0].style.borderRadius="10px"
-            messageContainer[i].children[0].style.padding="5px"
-            messageContainer[i].style.marginBottom="5px"
-            messageContainer[i].children[0].style.backgroundColor="rgb(37, 150, 190)"
-        }
-    }
-}
 
 SortMessagesByUser();
 connect();

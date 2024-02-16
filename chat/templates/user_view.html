@@ -6,6 +6,10 @@
     <title>Document</title>
 </head>
 <body>
+
+    {% for group in groups %}
+        {{group.room_name}}
+    {%endfor%}
     
     {% for user in users %}
         {% for name in user.users.all%}
