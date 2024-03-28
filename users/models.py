@@ -77,7 +77,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 class UserProfile(models.Model):
     user = models.OneToOneField("CustomUser", on_delete=models.CASCADE)
     bio = models.TextField(null=True)
-    profile_pic = models.ImageField(upload_to=None, height_field=None, width_field=None, max_length=None, null=True)
+    profile_pic = models.ImageField(upload_to=None, height_field=None, width_field=None, max_length=None, null=True, blank=True)
 
 # i want to search for friend and send a request
 class FriendRequest(models.Model):
@@ -95,6 +95,6 @@ class UserNotifications(models.Model):
     
 class UserFriends(models.Model):
     user = models.ForeignKey(CustomUser, related_name='friend_from', on_delete=models.CASCADE)
-    friends = models.ForeignKey(CustomUser, related_name='friend_to', on_delete=models.CASCADE)
+    friends = models.ForeignKey(CustomUser, related_name='friend_to', on_delete=models.CASCADE,unique=True )
     created_at = models.DateTimeField(auto_now_add=True)
 

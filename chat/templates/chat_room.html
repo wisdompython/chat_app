@@ -24,7 +24,12 @@
                 <div class="col-12 col-md-8">
                     <div class="mb-2">
                         <label for="chatLog">Room: # {{ room.room_name }}</label>
-                        <textarea class="form-control" id="chatLog" readonly></textarea>
+                        <div class="form-control" id="chatLog">
+                            {% for msg in messages %}
+                                <div class="message-content" data-author="{{msg.sender}}">
+                                </div>
+                            {%endfor%}
+                        </div>
                     </div>
                     <div class="input-group">
                         <input type="text" class="form-control" id="chatMessageInput" placeholder="Enter your chat message">
@@ -32,11 +37,6 @@
                             <button class="btn btn-success" id="chatMessageSend" type="button">Send</button>
                         </div>
                     </div>
-                </div>
-                <div class="col-12 col-md-4">
-                    <label for="onlineUsers">Online users</label>
-                    <select multiple class="form-control" id="onlineUsersSelector">
-                    </select>
                 </div>
             </div>
             {{ room.room_name|json_script:"roomName" }}

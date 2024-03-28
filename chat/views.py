@@ -1,50 +1,120 @@
 from django.shortcuts import render, redirect,get_object_or_404
-
-# Create your views here.
+from django.db import transaction
+from django.http import JsonResponse, HttpResponse
+from django.core.paginator import Paginator
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from chat.models import *
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db.models import Q
+from django.utils import timezone
 from users.models import *
 from .forms import *
 from .chatbot import *
 import uuid
+import json
+from itertools import chain
+from operator import attrgetter
 
 def index_view(request):
     return render(request, 'index.html', {
-        'rooms': Room.objects.filter(online__id=request.user.id),
+        'rooms': Room.objects.filter(members__id=request.user.id).order_by('-last_modified'),
     })
 
 def private_chat(request):
     # view all the rooms a user is present in
-    group_chats = Room.objects.filter(members__id=request.user.id)
-    private_room = PrivateRooms.objects.filter(users__id=request.user.id)
-    #print(private_room)
-    print(group_chats)
+    rooms = Room.objects.filter(members__id=request.user.id)
     return render(request,'user_view.html', {
-        'users':private_room,
-        'groups':group_chats
+        'rooms':rooms
     })
 
+def set_model_items_to_list(data):
+    item_list = []
+    for item in data:
+        print(item.receiver)
+        try:
+            if item.message and item.receiver:
+                item_info = {
+                    'sender':item.sender.email,
+                    'receiver':item.receiver.email,
+                    'message': item.message,
+                    'timestamp':item.timestamp,
+                    'room_name': item.room.room_name,
+                }
+            elif item.message and item.sender :
+                item_info = {
+                    'sender':item.sender.email,
+                    'message': item.message,
+                    'timestamp':item.timestamp,
+                    'room_name': item.room.room_name,
+                }
+            else:
+                item_info = {
+                    'message': item.message,
+                    'timestamp':item.timestamp,
+                    'room_name': item.room.room_name,
+                }
+
+        except Exception as e:
+            print(e)
+            try:
+                if item.pending:
+                    item_info = {
+                        'sender':item.sender.email,
+                        'receiver':item.receiver.email,
+                        'pending': item.pending,
+                        'room_name': item.room.room_name,
+                        'group_caption' : item.room.group_room.values()[0],
+                        'timestamp':item.timestamp
+                    }
+                    print(item_info)
+            except Exception as e:
+                print(e)
+                return {"error":"no item"}
+
+
+        item_list.append(item_info)
+
+    return item_list
+
 # enter a particular room
-def private_chat_rooms(request,user_id):
+def private_chat_rooms(request,user_id, num):
     user_exists = CustomUser.objects.filter(id=user_id).exists()
     if not user_exists:
         return redirect('home')
-    get_user_messages = PrivateMessage.objects.filter(sender=request.user, 
-                                    receiver=user_id)|PrivateMessage.objects.filter(sender=user_id,
-                                                                                    receiver=request.user) 
-    private_room = PrivateRooms.objects.filter(users__in=[request.user.id, user_id]).exists()
+    elif not UserFriends.objects.filter(user=request.user.id, friends=user_id).exists():
+        return redirect('home') # i want to tell them this person is not on your friend list 
+    
+    get_user_messages = Message.objects.filter( Q(sender=request.user.id, 
+                                    receiver=user_id, private=True)| Q (sender=user_id,
+                                                                                    receiver=request.user.id, private=True))
+    
+    get_invites = GroupInvite.objects.filter(
+        Q(sender=request.user.id, receiver=user_id, pending=True) | Q(
+        sender=user_id, receiver=request.user.id, pending=True))
+    combined_query_set = list(chain(sorted(get_user_messages,key=attrgetter('timestamp')), sorted(get_invites,key=attrgetter('timestamp'))))
+    combined_query_set = sorted(combined_query_set, key=attrgetter('timestamp'))
+    message = set_model_items_to_list(combined_query_set[-num:])
+    private_room = Room.objects.filter(members=request.user.id, private=True).filter(members=user_id).exists()
     if not private_room:  
         if user_exists:
-            private_room = PrivateRooms.objects.create()
-            private_room.users.add(request.user)
-            private_room.users.add(user_id)
+            private_room = Room.objects.create()
+            private_room.members.add(request.user)
+            private_room.members.add(user_id)
+            private_room.private=True
+            private_room.save()
     logged_in_user = CustomUser.objects.get(id=request.user.id)
     other_user = CustomUser.objects.get(id=user_id)
-    private_room = PrivateRooms.objects.filter(users__in=[request.user.id, user_id])
-    return render(request,'private_messaging.html',
-                    {'private_room':private_room[0], 'messages':get_user_messages,
-                     'logged_in_user':logged_in_user,'other_user':other_user})
+    print(other_user)
 
+    private_room = Room.objects.filter(members=logged_in_user, private=True).filter(members=user_id)
 
+    return JsonResponse({
+        'data':message,
+        'logged_in_user':logged_in_user.email,
+        'other_user':other_user.email
+    })
+   
 
 def chat_bot_room(request, bot_name):
     pass
@@ -56,7 +126,6 @@ def add_datasource(request):
         form = CreateDataSource(request.POST, request.FILES)
         if form.is_valid():
             instance = form.save(commit=False)
-
             instance.owner = request.user
             instance.save()
 
@@ -101,39 +170,125 @@ def query_collection(request, collection_id):
     return render(request, 'query.html', {
         'form':form
     })
+def SendInvites(userIDs:list):
+    for user_id in userIDs:
+        pass
 
-# we want to enter into a room
-def room_view(request, room_name):
-    chat_room = get_object_or_404(Room, room_name=room_name)
-    # check if the user is a member of that room
-    if chat_room:
-        print(chat_room.online.all())
-        if not request.user in chat_room.members.all():
-            return redirect('home')
+def getUser(user_id):
+    return CustomUser.objects.get(id=user_id)
+
+def check_if_friends_room(loggedIn, otherUser):
+    return Room.objects.filter(members=otherUser, private=True).filter(members=loggedIn).exists()
+
+def GroupChat(request, room_name, num):
+    print(room_name)
+    # check if room exists
+    get_group = Room.objects.filter(room_name=room_name,group=True, members__id=request.user.id ).exists()
+    if get_group:
+        # if yes get room
+
+        get_group = Room.objects.get(room_name=room_name)
+        ## check if user is a member of the room
         
+        
+        get_room_messages = Message.objects.filter(room=get_group, group=True)
 
-    return render(request, 'chat_room.html', {
-        'room': chat_room,
-    }) 
+        get_room_messages = set_model_items_to_list(list(get_room_messages)[-num:])
+        print(get_room_messages)
+
+        return JsonResponse({
+            'data':get_room_messages,
+            'logged_in_user': request.user.email
+            })
+    
+    return JsonResponse("not a member of this group", safe=False)
+
 def CreateGroupChat(request):
-    form = CreateGroupChatForm(current_user=request.user.id)
-
+    get_user_friends = UserFriends.objects.filter(user=request.user.id)
     if request.method=='POST':
-        form = CreateGroupChatForm(request.POST, current_user=request.user.id)
+            form = json.loads(request.body)
+            print(form)
+            friends = form['added_ids']
 
-        if form.is_valid():
-            room = form.save(commit=False)
-            room.creator = request.user.id 
-    pass
+            group_room = Room.objects.create(group=True)
+            group_room.members.add(request.user)
+            group_profile = GroupRoomProfile.objects.create(room=group_room, 
+                                             room_title_caption=form['room_name'],
+                                             room_description = form['description'],
+                                             creator = request.user)
+            group_profile.save()
+            for friend in range(len(friends)):
+                get_user = getUser(friends[friend])
+                room = check_if_friends_room(get_user, request.user)
+                if not room:
+                    Room.objects.create(private=True).members.add(request.user, get_user)
+                room = Room.objects.filter(members=get_user, private=True).filter(members=request.user)
+                invite = GroupInvite.objects.filter(room=group_room, sender=request.user.id).filter(receiver=get_user).exists()
+                if not invite:
+                    invite = GroupInvite.objects.create(room=group_room, sender=request.user, receiver=get_user)
+                invite = GroupInvite.objects.get(room=group_room, sender=request.user, receiver=get_user)
+                channel_layer = get_channel_layer()
+
+                async_to_sync(channel_layer.group_send)(
+                    f'chat_{room[0].room_name}',
+                    {
+                        'message': json.dumps(f"{request.user} is inviting you to join his group"),
+                        'invite_id':invite.id,
+                        'sent_by':json.dumps(request.user.email),
+                        'sent_to':get_user.email,
+                        'type':'send_notifications'
+                    })
+            return JsonResponse({'data':'Group Created'},status=200)
+    return render (request, 'create_group_chat.html',{"friends":get_user_friends})
+
 def InviteToGroupChat(request, groupID, user_id):
+    check_if_owner_of_group  = get_object_or_404(Room, creator=request.user.id)
     room = Room.objects.get(id=groupID)
+    check_if_friends = get_object_or_404(UserFriends, user=request.user, friends=user_id)
+
+    if check_if_friends: 
+        check_if_member_of_group = get_object_or_404(Room, members__id=user_id)
     invite = GroupInvite.objects.create(room=room, sender=request.user, receiver=user_id)
      ## create a notification
     pass
 
-def AcceptGroupInvite(request, groupID, inviteID):
-    room = Room.objects.get(id=groupID)
 
-    
+@transaction.atomic
+def AcceptGroupInvite(request):
+    if request.method=='POST':
+        data = json.loads(request.body)
+        print(data)
+        print(data['room_id'])
+        room = Room.objects.get(room_name=data['room_id'])
+        print(room)
+        invite = GroupInvite.objects.filter(room=room, receiver=request.user).exists()
+        if invite:
+            invite = GroupInvite.objects.get(room=room, receiver=request.user)
+            room.members.add(request.user.id)
+            invite.accepted=True    
+            invite.rejected= False
+            invite.pending=False
+            invite.save()
+            room.save()
+            return JsonResponse("Completed!!", safe=False)
+    return JsonResponse("Failed", safe=False)
 
-    pass
+
+@transaction.atomic
+def RejectGroupInvite(request):
+    if request.method=='POST':
+        data = json.loads(request.body)
+        print(data)
+        print(data['room_id'])
+        room = Room.objects.get(room_name=data['room_id'])
+        print(room)
+        invite = GroupInvite.objects.filter(room=room, receiver=request.user).exists()
+        if invite:
+            invite = GroupInvite.objects.get(room=room, receiver=request.user)
+            invite.accepted=False   
+            invite.rejected= True
+            invite.pending=False
+            invite.save()
+            room.save()
+            return JsonResponse("Completed!!", safe=False)
+    return JsonResponse("Failed", safe=False)

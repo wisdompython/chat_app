@@ -1,5 +1,4 @@
 console.log("Sanity check from room.js.");
-
 const roomName = JSON.parse(document.getElementById('roomName').textContent);
 console.log(roomName)
 
@@ -63,10 +62,15 @@ function connect() {
     chatSocket.onmessage = function(e) {
         const data = JSON.parse(e.data);
         console.log(data);
-
         switch (data.type) {
             case "chat_message":
-                chatLog.value += data.message + "\n";
+                const newMessage = document.createElement('div')
+                newMessage.setAttribute('class','message-content')
+                // newMessage.setAttribute('data-author',data.sent_by)
+                // let message_body = document.createElement("p")
+                // message_body.textContent = data.message
+                newMessage.innerHTML=data.message
+                chatLog.appendChild(newMessage)
                 break;
             default:
                 console.error("Unknown message type!");

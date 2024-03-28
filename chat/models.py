@@ -19,12 +19,12 @@ class Collection(models.Model):
         return self.title
 
 class DataSource(models.Model):
-    document_folder_name = models.CharField(max_length=200)
+    document_folder_name = models.CharField(max_length=1000)
     collection = models.ForeignKey(Collection, on_delete=models.CASCADE)
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
     owner = models.ForeignKey(CustomUser,on_delete=models.CASCADE)
-    file = models.FileField(upload_to=get_upload_path)   
+    file = models.FileField(upload_to=get_upload_path, max_length=1000)   
 
 class LearningAssistantChatRoom(models.Model):
     room_name = models.CharField(max_length=500)
@@ -35,28 +35,40 @@ class BotConversations(models.Model):
     name = models.CharField(max_length=200)
     room = models.ForeignKey(LearningAssistantChatRoom,on_delete=models.CASCADE)
 
-class BotUserMessage(models.Model):
-    conversation = models.ForeignKey(BotConversations,on_delete=models.CASCADE)
-    message = models.TextField()
-    creator = models.ForeignKey(Collection, on_delete=models.CASCADE)
-
 class UserQueries(models.Model):
     conversation = models.ForeignKey(BotConversations,on_delete=models.CASCADE)
     message = models.TextField()
     creator = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
+class BotUserMessage(models.Model):
+    conversation = models.ForeignKey(BotConversations,on_delete=models.CASCADE)
+    message = models.TextField()
+    creator = models.ForeignKey(Collection, on_delete=models.CASCADE)
+    reply_to = models.ForeignKey(UserQueries, on_delete=models.CASCADE, null=True)
+
+
+class Message(models.Model):
+    room = models.ForeignKey('Room', on_delete=models.CASCADE, null=True, related_name='room_messages')
+    sender = models.ForeignKey(CustomUser, related_name='sent_messages', on_delete=models.CASCADE, null=True, blank=True, default=None)
+    receiver = models.ForeignKey(CustomUser, related_name='received_messages', default=None, on_delete=models.CASCADE, null=True, blank=True)
+    message = models.TextField()
+    private = models.BooleanField(default=False)
+    group = models.BooleanField(default=False)
+    timestamp =models.DateTimeField(auto_now_add=True)
+
+
 class Room(models.Model):
-    room_name = models.UUIDField(default=uuid.uuid4(),max_length=100)
-    room_title_caption= models.CharField(max_length=100, null=True)
-    room_description = models.TextField(null=True)
-    room_bot = models.ForeignKey(Collection, default=None, null=True, on_delete=models.CASCADE)
-    members = models.ManyToManyField(UserFriends, blank=True)
-    creator = models.ForeignKey(CustomUser, null=True, related_name='room_owner', on_delete=models.CASCADE)
+    room_name = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True) 
+    room_title = models.CharField(null=True, blank=True, max_length=200)  
+    members = models.ManyToManyField(CustomUser, blank=True)
+    private = models.BooleanField(default=False)
+    group = models.BooleanField(default=False)
     timestamp =models.DateTimeField(auto_now_add=True, null=True)
-
-
+    last_modified = models.DateTimeField(auto_now=True, null=True)
+    
+    
     def get_online_count(self):
-        return self.online.count()
+        return self.members.count()
 
     def join(self,user):
         self.online.add(user)
@@ -66,41 +78,27 @@ class Room(models.Model):
     
     def __str__(self):
         return f'{self.room_name} : {self.get_online_count()}'
-
-class GroupInvite(models.Model):
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
-    sender = models.ForeignKey(CustomUser, related_name='group_invite_sender', on_delete=models.CASCADE)
-    receiver = models.ForeignKey(CustomUser, related_name='group_invite_receiver', on_delete=models.CASCADE)
-    timestamp =models.DateTimeField(auto_now_add=True)
-
-class PrivateRooms(models.Model):
-    room_name = models.UUIDField(default=uuid.uuid4(),editable=True,unique=True)
-    users = models.ManyToManyField(CustomUser, blank=True)
-
-class Message(models.Model):
-    user = models.OneToOneField(CustomUser,on_delete=models.CASCADE)
-    message = models.TextField()
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
-    timestamp =models.DateTimeField(auto_now_add=True)
-
-# i am trying to achieve 
     
-class PrivateMessage(models.Model):
-    sender = models.ForeignKey(CustomUser, related_name='sent_messages', on_delete=models.CASCADE)
-    receiver = models.ForeignKey(CustomUser, related_name='received_messages', on_delete=models.CASCADE)
-    message = models.TextField(null=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-
     class Meta:
         ordering = ['timestamp']
-    def __str__(self):
-        return f"{self.sender} to {self.receiver}: {self.message}"
+    
 
-class OneOnOneMessage(models.Model):
-    sender = models.ForeignKey(CustomUser, related_name='oneonone_sent_messages', on_delete=models.CASCADE)
-    receiver = models.ForeignKey(CustomUser, related_name='oneonone_received_messages', on_delete=models.CASCADE)
-    message = models.ForeignKey(Message, on_delete=models.CASCADE)
-    timestamp = models.DateTimeField(auto_now_add=True)
+class GroupRoomProfile(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="group_room")
+    room_title_caption= models.CharField(max_length=100, null=True)
+    creator = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    room_bot = models.ForeignKey(Collection, default=None, blank=True, null=True, on_delete=models.CASCADE)
+    room_description = models.TextField(null=True)
 
-    def __str__(self):
-        return f"{self.sender} to {self.receiver}: {self.message}"
+
+
+class GroupInvite(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='group_room_invite')
+    sender = models.ForeignKey(CustomUser, related_name='group_invite_sender', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(CustomUser, related_name='group_invite_receiver', on_delete=models.CASCADE)
+    pending = models.BooleanField(default=True)
+    accepted = models.BooleanField(default=False)
+    rejected = models.BooleanField(default=False)
+    timestamp =models.DateTimeField(auto_now_add=True)
+
+

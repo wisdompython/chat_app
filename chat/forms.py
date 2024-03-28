@@ -25,12 +25,5 @@ class CreateGroupChatForm(ModelForm):
 
     class Meta:
         model = Room
-        fields = ['room_title_caption', 'room_description','room_bot']
+        fields = ['members']
     # show only bots/collections created by the current user
-    def __init__(self, *args, **kwargs):
-        current_user = kwargs.pop('current_user', None)
-
-        super(CreateGroupChatForm, self).__init__(*args, **kwargs)
-
-        if current_user:
-            self.fields['room_bot'].queryset = self.fields['room_bot'].queryset.filter(owner=current_user.id)

@@ -84,3 +84,6 @@ class UserAdmin(BaseUserAdmin):
 
 admin.site.register(CustomUser, UserAdmin)
 admin.site.unregister(Group)
+admin.site.register(UserFriends)
+admin.site.register(FriendRequest)
+admin.site.register(UserProfile)

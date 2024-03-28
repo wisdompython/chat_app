@@ -1,12 +1,12 @@
 <!-- chat/templates/index.html -->
-
 {% load static %}
 
 <!DOCTYPE html>
 <html lang="en">
     <head>
         <title>django-channels-chat</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+        <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"> -->
+        <link rel="stylesheet" href="{% static 'css/index.css'%}">
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"></script>
         <style>
             #roomSelect {
@@ -15,27 +15,81 @@
         </style>
     </head>
     <body>
-        <div class="container mt-3 p-5">
-            <h2>django-channels-chat</h2>
-            <div class="row">
-                <div class="col-12 col-md-8">
-                    <div class="mb-2">
-                        <label for="roomInput">Enter a room name to connect to it:</label>
-                        <input type="text" class="form-control" id="roomInput" placeholder="Room name">
-                        <small id="roomInputHelp" class="form-text text-muted">If the room doesn't exist yet, it will be created for you.</small>
+        <h2 class="page title">StudyApp; Chat with Friends</h2>
+        <div class="chat-container">
+            <div class="chats">
+               
+                <div class="col-12">
+                    <input type="text" class="search-for-users">
+                <div>
+                
+                    <div class="search-drop-box hidden" >
+
                     </div>
-                    <button type="button" id="roomConnect" class="btn btn-success">Connect</button>
+                    {% for room in rooms %}
+                    <ul>
+                        {% if room.private %}
+                            {% for member in room.members.all %}
+                                {% if not member.email == request.user.email %}
+                                    <li class="chat-item" data-room={{room.room_name}} data-id={{member.id}} data-email={{member.email}}><a>{{member.email}}</a></li>
+                                {%endif%}
+                            {% endfor %}
+                        {% elif room.group %}
+                            <li class="chat-item" data-room={{room.room_name}} data-group={{room.group_room.values.0.room_title_caption}}>{{room.group_room.values.0.room_title_caption}}</li>
+                        {%endif%}
+                    </ul>
+                    {% endfor %}
+                    </div>
                 </div>
-                <div class="col-12 col-md-4">
-                    <label for="roomSelect">Active rooms</label>
-                    <select multiple class="form-control" id="roomSelect">
-                        {% for room in rooms %}
-                            <option>{{ room }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+            
             </div>
+            <div class="chat-area" >
+                <div class="default-display">
+                    <p>This is the chat area</p>
+                </div>
+                <div class="chat-box-container">
+                    <div id="ChatLog" class="chat-with-user">
+                    
+                    </div>
+                </div>
+
+                <div class="input-group inputbox hidden">
+                    <input type="text" class="form-control" id="chatMessageInput" placeholder="Enter your chat message">
+                    <div class="input-group-append">
+                        <button class="btn btn-success" id="chatMessageSend" type="button">Send</button>
+                    </div>
+                </div>
+               
+                
+                <!-- include the chat with a user based on the item clicked  -->
+            </div>
+           
         </div>
-        <script src="{% static 'script.js' %}"></script>
+        {{request.user.email|json_script:"LoggedInUser"}}
+        {{request.user.id|json_script:"LoggedInUserID"}}
+        {{ other_user.email|json_script:"OtherUser" }}
+        <script type="text/javascript">
+            function getCookie(name) {
+                          let cookieValue = null;
+                          if (document.cookie && document.cookie !== '') {
+                              const cookies = document.cookie.split(';');
+                              for (let i = 0; i < cookies.length; i++) {
+                                  const cookie = cookies[i].trim();
+                                  // Does this cookie string begin with the name we want?
+                                  if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                      cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                      break;
+                                  }
+                              }
+                          }
+                          return cookieValue;
+                        }
+        </script>
+        <script type="module" src="{% static 'index.js' %}"></script>
+        <script type="module" src="{% static 'sortusermsg.js' %}"></script>
+        <script type="module" src="{% static 'pm_invites.js'%}"></script>
+        <script type="module" src="{% static 'pm.js'%}"></script>
+        <script type="module" src="{%static 'js_user_interactions\search.js'%}"></script>
+
     </body>
-</html>
+ 

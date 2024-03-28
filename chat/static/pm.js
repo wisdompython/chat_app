@@ -1,94 +1,68 @@
 import {SortMessagesByUser} from './sortusermsg.js';
-const roomName = JSON.parse(document.getElementById('roomName').textContent);
-const LoggedInUser = JSON.parse(document.getElementById('LoggedInUser').textContent)
-const OtherUser= JSON.parse(document.getElementById('otherUser').textContent)
-console.log(roomName)
+import { HandleGroupInvitesNotification } from './sortusermsg.js';
 
-let chatLog = document.querySelector("#chatLog");
+let chatSocket = null
 let chatMessageInput = document.querySelector("#chatMessageInput");
 let chatMessageSend = document.querySelector("#chatMessageSend");
-let onlineUsersSelector = document.querySelector("#onlineUsersSelector");
 
+export function connect(roomName, OtherUser, url_tag) {
+    let chatLog = document.querySelector(".chat-box-container");
+    let message_area = document.querySelector('.chat-with-user')
 
+    chatMessageInput.focus();
+    const LoggedInUser = JSON.parse(document.getElementById('LoggedInUser').textContent)
+    chatMessageInput.onkeyup = function(e) {
+        if (e.keyCode === 13) {  // enter key
+            chatMessageSend.click();
+        }
+    };
 
-function AddOnlineUsers(value){
-    if (document.querySelector("option[value="+ value +" ]")){
-        return;
+    chatMessageSend.onclick = function() {
+        if (chatMessageInput.value.length === 0) return;
+        chatMessageInput.value = "";
+    };
+    chatLog.scrollTop = chatLog.scrollHeight
+
+    if(chatSocket && chatSocket.readyState === WebSocket.OPEN){
+        chatSocket.close()
     }
-    let newOption = new Option(value, value)
-    onlineUsersSelector.add(newOption)
-}
 
-function RemoveOnlineUser(value){
-    user = document.querySelector("option[value="+ value +" ]")
-    if(user!==null){
-        user.remove()
-    }
-}
-
-// focus 'chatMessageInput' when user opens the page
-chatMessageInput.focus();
-
-// submit if the user presses the enter key
-chatMessageInput.onkeyup = function(e) {
-    if (e.keyCode === 13) {  // enter key
-        chatMessageSend.click();
-    }
-};
-
-// clear the 'chatMessageInput' and forward the message
-chatMessageSend.onclick = function() {
-    if (chatMessageInput.value.length === 0) return;
-    // TODO: forward the message to the WebSocket
-    chatMessageInput.value = "";
-};
-
-let chatSocket = null;
-
-function connect() {
-    console.log(roomName)
-    chatSocket = new WebSocket("ws://" + window.location.host + "/ws/chat/private/" + roomName + "/");
-
+    chatSocket = new WebSocket("ws://" + window.location.host + url_tag + roomName + "/");
+    
+    
+    console.log(chatSocket.readyState)
     chatSocket.onopen = function(e) {
+        console.log(chatSocket.readyState)
+      
         console.log("Successfully connected to the WebSocket.");
     }
+    
 
     chatSocket.onclose = function(e) {
         console.log("WebSocket connection closed unexpectedly. Trying to reconnect in 2s...");
-        setTimeout(function() {
-            console.log("Reconnecting...");
-            connect();
-        }, 2000);
     };
-    // i think when we recieve a message from the server
+
     chatSocket.onmessage = function(e) {
         const data = JSON.parse(e.data);
         
-        console.log(data);
-
+    
         switch (data.type) {
             case "chat_message":
                 const newMessage = document.createElement('div')
                 newMessage.setAttribute('class','message-content')
                 newMessage.setAttribute('data-author',data.sent_by)
-                let message_body = document.createElement("p")
-                message_body.textContent = data.message
-                newMessage.appendChild(message_body)
-                chatLog.appendChild(newMessage)
-                SortMessagesByUser()
-            // if (data.sent_by==LoggedInUser){
-            //     data.style.color='red'
-            //     chatLog.value += data.message + "\n";
-            // }
-                // chatLog.value += data.message + "\n";
+                newMessage.innerHTML = `<p> ${(data.message)} </p>`
+                message_area.appendChild(newMessage)
+                chatLog.scrollTop = chatLog.scrollHeight
+                SortMessagesByUser(OtherUser)
                 break;
-            default:
-                console.error("Unknown message type!");
+            case "send_notifications":
+                HandleGroupInvitesNotification(data.message)
+                SortMessagesByUser(OtherUser)
+                console.log(data)
                 break;
         }
-
-        // scroll 'chatLog' to the bottom
-        chatLog.scrollTop = chatLog.scrollHeight;
+        
     };
 
     chatSocket.onerror = function(err) {
@@ -98,20 +72,16 @@ function connect() {
     }
 
 
-    // when you click on the send button this should happen
-
     chatMessageSend.onclick = function() {
         if (chatMessageInput.value.length === 0) return;
         chatSocket.send(JSON.stringify({
             "message": chatMessageInput.value,
             "sent_by": LoggedInUser,
-            "sent_to": OtherUser
+            "sent_to": OtherUser,
+            "type":"chat_message"
         }));
-        // console.log(JSON.parse(document.getElementById('LoggedInUser').textContent))
         chatMessageInput.value = "";
     };
+    return chatSocket
 }
-console.log(roomName)
 
-SortMessagesByUser();
-connect();

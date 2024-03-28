@@ -26,25 +26,58 @@
                         <label for="chatLog">chat with: # {{ other_user.email}}</label>
                         <div class="form-control" id="chatLog" readonly style="border: solid; overflow-y: auto; overflow-x:hidden ; height:400px ">
                             {% for msg in messages %}
-                            <div class="message-content" data-author="{{msg.sender}}"  > 
-                                <p>{{msg.message}}</p>
+                            <div class="message-content" data-author="{{msg.sender}}">
+                                {% if msg.message %} 
+                                    <p>{{msg.message}}</p>
+                                {%elif not msg.message%}
+                                    {% if msg.pending%}
+                                        <div class="group-invite">
+                                            {{msg.room.room_name|json_script:"group_room_id"}}
+                                            <p class="invite-message"></p>{{msg.sender}} is inviting you to join {{msg.room.group_room.values.0.room_title_caption}}
+                                            <button id="AcceptInvite" class="accept-invite" href="" data-invite="{{msg.id}}">Accept</button>
+                                            <button id="RejectInvite" class="reject-invite" href="" data-invite="{{msg.id}}">Reject</button>
+                                        </div>
+                                    {% endif %}
+                                        <p>{{msg.message.accepted}}</p>
+                                {%endif%}
                             </div>
                             {%endfor%}
                         </div>
-                    </div>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="chatMessageInput" placeholder="Enter your chat message">
-                        <div class="input-group-append">
-                            <button class="btn btn-success" id="chatMessageSend" type="button">Send</button>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="chatMessageInput" placeholder="Enter your chat message">
+                            <div class="input-group-append">
+                                <button class="btn btn-success" id="chatMessageSend" type="button">Send</button>
+                            </div>
                         </div>
                     </div>
+                    
                 </div>
             </div>
             {{ private_room.room_name|json_script:"roomName" }}
             {{request.user.email|json_script:"LoggedInUser"}}
             {{ other_user.email|json_script:"otherUser" }}
         </div>
+        <script type="text/javascript">
+            function getCookie(name) {
+                          let cookieValue = null;
+                          if (document.cookie && document.cookie !== '') {
+                              const cookies = document.cookie.split(';');
+                              for (let i = 0; i < cookies.length; i++) {
+                                  const cookie = cookies[i].trim();
+                                  // Does this cookie string begin with the name we want?
+                                  if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                      cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                      break;
+                                  }
+                              }
+                          }
+                          return cookieValue;
+                        }
+                    
+        </script>
         <script type="module" src="{% static 'pm.js' %}"></script>
         <script type="module" src="{% static 'sortusermsg.js' %}"></script>
+        <script type="module" src="{% static 'pm_invites.js'%}"></script>
+        
     </body>
 </html>
